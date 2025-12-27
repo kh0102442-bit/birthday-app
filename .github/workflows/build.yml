@@ -1,63 +1,48 @@
-name: Build Kivy APK
+name: Build Signed APK
 
 on:
-  workflow_dispatch:  # يسمح بتشغيل يدوي
+  push:
+    branches: [ main ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      # Step 1: Decode Keystore from base64
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android.jks
+
+      # Step 2: Build Release APK using Buildozer
+      - name: Build Release APK
+        uses: digreatbrian/buildozer-action@v2
         with:
-          python-version: '3.9'
+          python-version: 3.11
+          buildozer-cmd: buildozer -v android release
 
-      - name: Install system dependencies
+      # Step 3: Sign the APK manually with .jks keystore
+      - name: Sign the APK manually
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            openjdk-11-jdk \
-            python3-pip \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev
+          APK_PATH=$(find ./bin -name "*-release-unsigned.apk" | head -n 1)
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore android.jks \
+            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -keypass "${{ secrets.KEY_PASSWORD }}" \
+            "$APK_PATH" "${{ secrets.KEY_ALIAS }}"
 
-      - name: Install Python dependencies
+      # Step 4: Rename the signed APK
+      - name: Rename the signed APK
         run: |
-          pip install buildozer==1.5.0
-          pip install cython==0.29.33
-          pip install kivy==2.1.0
+          APK_PATH=$(find ./bin -name "*-release-unsigned.apk" | head -n 1)
+          NEW_APK_PATH="${APK_PATH/-unsigned/-signed}"
+          mv "$APK_PATH" "$NEW_APK_PATH"
 
-      - name: Build APK
-        run: |
-          buildozer android debug
-        continue-on-error: true
-
-      - name: Check for APK
-        run: |
-          if ls ./bin/*.apk 1> /dev/null 2>&1; then
-            echo "APK found!"
-            ls -la ./bin/*.apk
-          else
-            echo "No APK found, checking logs..."
-            find . -name "*.log" -type f | head -5
-          fi
-
-      - name: Upload APK if exists
-        if: success() || failure()
+      # Step 5: Upload Signed APK Artifact
+      - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: birthday-app-apk
-          path: ./bin/*.apk
-          if-no-files-found: warn
+          name: signed-release-apk
+          path: ./bin/*-release-signed.apk
