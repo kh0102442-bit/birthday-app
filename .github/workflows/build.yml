@@ -16,14 +16,21 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android.jks
 
-      # Step 2: Build Release APK using Buildozer
+      # Step 2: Accept Android SDK licenses
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          yes | /home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      # Step 3: Build Release APK using Buildozer
       - name: Build Release APK
         uses: digreatbrian/buildozer-action@v2
         with:
           python-version: 3.11
           buildozer-cmd: buildozer android release
 
-      # Step 3: Sign the APK manually with .jks keystore
+      # Step 4: Sign the APK manually with .jks keystore
       - name: Sign the APK manually
         run: |
           APK_PATH=$(find ./bin -name "*-release-unsigned.apk" | head -n 1)
@@ -33,14 +40,14 @@ jobs:
             -keypass "${{ secrets.KEY_PASSWORD }}" \
             "$APK_PATH" "${{ secrets.KEY_ALIAS }}"
 
-      # Step 4: Rename the signed APK
+      # Step 5: Rename the signed APK
       - name: Rename the signed APK
         run: |
           APK_PATH=$(find ./bin -name "*-release-unsigned.apk" | head -n 1)
           NEW_APK_PATH="${APK_PATH/-unsigned/-signed}"
           mv "$APK_PATH" "$NEW_APK_PATH"
 
-      # Step 5: Upload Signed APK Artifact
+      # Step 6: Upload Signed APK Artifact
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
