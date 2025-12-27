@@ -23,12 +23,6 @@ jobs:
           python-version: 3.11
           buildozer-cmd: buildozer -v android release
 
-      # Step 2.5: Debug - List files
-      - name: Debug - List files
-        run: |
-          ls -la ./bin/
-          find . -name "*.apk"
-
       # Step 3: Sign the APK manually with .jks keystore
       - name: Sign the APK manually
         run: |
