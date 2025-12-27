@@ -16,19 +16,15 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android.jks
 
-      # Step 2: Accept Android SDK licenses
-      - name: Accept Android SDK licenses
+      # Step 2: Install older buildozer version
+      - name: Install Buildozer
         run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          yes | /home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          pip install buildozer==1.5.0
 
-      # Step 3: Build Release APK using Buildozer
+      # Step 3: Build Release APK
       - name: Build Release APK
-        uses: digreatbrian/buildozer-action@v2
-        with:
-          python-version: 3.11
-          buildozer-cmd: buildozer android release
+        run: |
+          buildozer android release
 
       # Step 4: Sign the APK manually with .jks keystore
       - name: Sign the APK manually
