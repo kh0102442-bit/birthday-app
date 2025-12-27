@@ -1,4 +1,4 @@
-name: Build Signed APK
+name: Build APK
 
 on:
   push:
@@ -11,41 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Step 1: Decode Keystore from base64
-      - name: Decode Keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android.jks
+      # Step 1: Install Python 3.9
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-      # Step 2: Install older buildozer version
+      # Step 2: Install Buildozer
       - name: Install Buildozer
         run: |
           pip install buildozer==1.5.0
+          pip install Cython==0.29.33
 
-      # Step 3: Build Release APK
-      - name: Build Release APK
+      # Step 3: Build APK
+      - name: Build APK
         run: |
-          buildozer android release
+          buildozer android debug
 
-      # Step 4: Sign the APK manually with .jks keystore
-      - name: Sign the APK manually
-        run: |
-          APK_PATH=$(find ./bin -name "*-release-unsigned.apk" | head -n 1)
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore android.jks \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -keypass "${{ secrets.KEY_PASSWORD }}" \
-            "$APK_PATH" "${{ secrets.KEY_ALIAS }}"
-
-      # Step 5: Rename the signed APK
-      - name: Rename the signed APK
-        run: |
-          APK_PATH=$(find ./bin -name "*-release-unsigned.apk" | head -n 1)
-          NEW_APK_PATH="${APK_PATH/-unsigned/-signed}"
-          mv "$APK_PATH" "$NEW_APK_PATH"
-
-      # Step 6: Upload Signed APK Artifact
-      - name: Upload Signed APK Artifact
+      # Step 4: Upload APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: signed-release-apk
-          path: ./bin/*-release-signed.apk
+          name: app-apk
+          path: ./bin/*.apk
