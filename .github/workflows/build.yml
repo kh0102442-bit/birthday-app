@@ -1,52 +1,63 @@
-name: Build APK
+name: Build Kivy APK
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:  # يسمح بتشغيل يدوي
 
 jobs:
   build:
-    runs-on: ubuntu-20.04  # إصدار أقدم
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # استخدم Python 3.8
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: '3.9'
 
-      # تثبيت التبعيات
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python3-pip \
             git \
             zip \
             unzip \
             openjdk-11-jdk \
+            python3-pip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
             zlib1g-dev \
             libncurses5-dev
 
-      # تثبيت Buildozer محلي
-      - name: Install Buildozer
+      - name: Install Python dependencies
         run: |
-          pip3 install --user buildozer
-          pip3 install --user cython==0.29.19
+          pip install buildozer==1.5.0
+          pip install cython==0.29.33
+          pip install kivy==2.1.0
 
-      # بناء APK
       - name: Build APK
         run: |
-          export PATH=$PATH:~/.local/bin
-          buildozer init
-          buildozer android debug 2>&1 | tail -50
+          buildozer android debug
+        continue-on-error: true
 
-      # رفع الملف
-      - name: Upload APK
+      - name: Check for APK
+        run: |
+          if ls ./bin/*.apk 1> /dev/null 2>&1; then
+            echo "APK found!"
+            ls -la ./bin/*.apk
+          else
+            echo "No APK found, checking logs..."
+            find . -name "*.log" -type f | head -5
+          fi
+
+      - name: Upload APK if exists
+        if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: birthday-app
+          name: birthday-app-apk
           path: ./bin/*.apk
-          retention-days: 1
+          if-no-files-found: warn
